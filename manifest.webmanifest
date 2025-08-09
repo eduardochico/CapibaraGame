@@ -1,0 +1,13 @@
+{
+  "name": "Capibara Runner",
+  "short_name": "CapyRunner",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#E8F9FF",
+  "theme_color": "#7ac74f",
+  "description": "Juego de Capibara Runner en Canvas con audio y PWA",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

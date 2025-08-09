@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Capibara Runner — Desktop + Mobile (PWA)</title>
+  <meta name="theme-color" content="#7ac74f" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <style>
+    :root{ --bg:#E8F9FF; --ground:#7ac74f; --text:#1f2937; --card:#ffffff; }
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial;overscroll-behavior:none}
+    .wrap{position:relative;display:flex;align-items:center;justify-content:center;min-height:100%}
+    .hud{position:absolute;inset:0;pointer-events:none}
+    .topbar{position:absolute;top:12px;left:12px;right:12px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+    .score{background:rgba(255,255,255,.75);backdrop-filter:blur(4px);padding:8px 12px;border-radius:14px;font-weight:800;letter-spacing:.4px;pointer-events:auto}
+    .btns{display:flex;gap:8px;flex-wrap:wrap}
+    button{pointer-events:auto;cursor:pointer;border:0;padding:10px 14px;border-radius:12px;background:#111827;color:#fff;font-weight:800;box-shadow:0 6px 16px rgba(0,0,0,.15)}
+    button.secondary{background:#fff;color:#111827}
+    .overlay{position:absolute;inset:0;display:grid;place-items:center}
+    .card{background:var(--card);padding:18px 20px;border-radius:16px;box-shadow:0 14px 40px rgba(0,0,0,.2);text-align:center;max-width:min(520px,92%)}
+    .card h1{margin:0 0 8px;font-size:clamp(20px,3.6vw,28px)}
+    .card p{margin:6px 0;line-height:1.5;font-size:clamp(13px,2.8vw,16px)}
+    .credit{position:absolute;bottom:8px;right:12px;opacity:.6;font-size:12px}
+    .tests{position:absolute;bottom:8px;left:12px;background:rgba(255,255,255,.85);padding:6px 10px;border-radius:10px;font-size:12px}
+    .tests b{color:#0a0}.tests .fail{color:#a00}
+    /* Desktop canvas */
+    body.desktop .wrap{padding:24px 0}
+    body.desktop canvas{width:min(960px,96vw);height:auto;display:block;background:linear-gradient(#b3ecff,var(--bg));border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.12);touch-action:none}
+    /* Mobile fullscreen */
+    body.mobile .wrap{position:fixed;inset:0}
+    body.mobile canvas{width:100vw;height:100vh;display:block;background:linear-gradient(#b3ecff,var(--bg));touch-action:none}
+  </style>
+</head>
+<body class="desktop">
+  <div class="wrap">
+    <canvas id="game" aria-label="Capibara corriendo y saltando paletas heladas"></canvas>
+    <div class="hud">
+      <div class="topbar">
+        <div class="score" id="score">Puntuación: 0</div>
+        <div class="btns">
+          <button id="btnStart">▶️ Jugar</button>
+          <button id="btnMute" class="secondary">🔇 Silencio</button>
+          <button id="btnToggle" class="secondary">📱 Modo móvil</button>
+          <button id="btnFS">⤢ Pantalla completa</button>
+          <button id="btnInstall" class="secondary" style="display:none">📲 Instalar</button>
+        </div>
+      </div>
+      <div class="overlay" id="overlay">
+        <div class="card" id="card">
+          <h1>Capibara Runner 🦫🍧</h1>
+          <p>Salta las <strong>paletas heladas</strong>. Toca o presiona <span class="kbd">Espacio</span>/<span class="kbd">↑</span> para saltar.</p>
+          <p>Optimizado para <strong>desktop</strong> y <strong>pantalla completa móvil</strong> con física basada en tiempo real.</p>
+          <p style="font-size:13px;opacity:.75">Si no oyes audio, presiona <strong>Jugar</strong> (autoplay policy).</p>
+        </div>
+      </div>
+      <div class="credit">Canvas + WebAudio</div>
+      <div class="tests" id="tests">Tests: <em>corriendo…</em></div>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+
+  <script>
+  // 📲 PWA: botón instalar + registro SW
+  (function pwa(){
+    const isLocalhost = /^(localhost|127\.|\[::1\])/.test(location.hostname);
+    const secureOK = location.protocol === 'https:' || isLocalhost;
+    const btnInstall = document.getElementById('btnInstall');
+
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e)=>{
+      e.preventDefault();
+      deferredPrompt = e;
+      btnInstall.style.display = 'inline-block';
+    });
+    btnInstall.addEventListener('click', async ()=>{
+      if(!deferredPrompt) return;
+      btnInstall.disabled = true;
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      deferredPrompt = null; btnInstall.disabled = false; btnInstall.style.display = 'none';
+    });
+
+    if('serviceWorker' in navigator && secureOK){
+      window.addEventListener('load', ()=>{
+        navigator.serviceWorker.register('./sw.js').catch(console.warn);
+      });
+    }
+  })();
+  </script>
+</body>
+</html>
