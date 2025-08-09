@@ -1,21 +1,58 @@
 // ===== Audio Core (WebAudio fallback) =====
 const AudioKit = (()=>{
-  let ctx, master, musicG, sfxG, timer=null, step=0; const SCALE=[0,2,3,5,7,9,10];
-  function ensure(){ if(!ctx){ ctx=new (window.AudioContext||window.webkitAudioContext)(); master=ctx.createGain(); master.gain.value=0.9; master.connect(ctx.destination); musicG=ctx.createGain(); musicG.gain.value=0.22; musicG.connect(master); sfxG=ctx.createGain(); sfxG.gain.value=0.9; sfxG.connect(master); } }
-  function unlock(){ ensure(); if(ctx.state==='suspended') ctx.resume(); }
-  function mute(on){ ensure(); master.gain.value = on? 0 : 0.9; }
-  function beep({freq=880, dur=0.07, type='square'}){ ensure(); const t0=ctx.currentTime; const o=ctx.createOscillator(); const g=ctx.createGain(); o.type=type; o.frequency.value=freq; g.gain.value=0; g.gain.linearRampToValueAtTime(0.6,t0+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t0+dur); o.connect(g).connect(sfxG); o.start(t0); o.stop(t0+dur+0.02); }
+  // Create AudioContext ONLY after a user gesture to satisfy autoplay policy
+  let ctx=null, master=null, musicG=null, sfxG=null, timer=null, step=0;
+  const SCALE=[0,2,3,5,7,9,10];
+
+  function isReady(){ return !!ctx; }
+
+  function unlock(){
+    if(isReady()) { if(ctx.state==='suspended') ctx.resume(); return; }
+    try{
+      ctx = new (window.AudioContext||window.webkitAudioContext)();
+      master = ctx.createGain(); master.gain.value=0.9; master.connect(ctx.destination);
+      musicG = ctx.createGain(); musicG.gain.value=0.22; musicG.connect(master);
+      sfxG = ctx.createGain(); sfxG.gain.value=0.9;  sfxG.connect(master);
+    }catch(e){
+      // If creation fails, keep silent; user can try again
+      ctx = null;
+    }
+  }
+
+  function mute(on){ if(!isReady()) return; master.gain.value = on? 0 : 0.9; }
+  function beep({freq=880, dur=0.07, type='square'}){
+    if(!isReady()) return;
+    const t0=ctx.currentTime; const o=ctx.createOscillator(); const g=ctx.createGain();
+    o.type=type; o.frequency.value=freq; g.gain.value=0;
+    g.gain.linearRampToValueAtTime(0.6,t0+0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+    o.connect(g).connect(sfxG); o.start(t0); o.stop(t0+dur+0.02);
+  }
   function n2f(n){ return 440*Math.pow(2,(n-69)/12) }
-  function play(freq,len=0.24,vol=0.15){ const t=ctx.currentTime; const o=ctx.createOscillator(); const g=ctx.createGain(); o.type='triangle'; o.frequency.value=freq; g.gain.value=0; g.gain.linearRampToValueAtTime(vol,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+len); o.connect(g).connect(musicG); o.start(t); o.stop(t+len+0.05); }
-  function startMusic(){ ensure(); stopMusic(); step=0; const base=57; timer=setInterval(()=>{ const deg=SCALE[step%SCALE.length]; play(n2f(base+deg+12),0.22,0.18); if(step%2===0) play(n2f(base+deg-12),0.28,0.12); step=(step+1)%32; }, 280); }
-  function stopMusic(){ if(timer) { clearInterval(timer); timer=null; } }
+  function play(freq,len=0.24,vol=0.15){
+    if(!isReady()) return;
+    const t=ctx.currentTime; const o=ctx.createOscillator(); const g=ctx.createGain();
+    o.type='triangle'; o.frequency.value=freq; g.gain.value=0;
+    g.gain.linearRampToValueAtTime(vol,t+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+len);
+    o.connect(g).connect(musicG); o.start(t); o.stop(t+len+0.05);
+  }
+  function startMusic(){
+    if(!isReady()) return; stopMusic(); step=0; const base=57;
+    timer=setInterval(()=>{ const deg=SCALE[step%SCALE.length];
+      play(n2f(base+deg+12),0.22,0.18);
+      if(step%2===0) play(n2f(base+deg-12),0.28,0.12);
+      step=(step+1)%32;
+    }, 280);
+  }
+  function stopMusic(){ if(timer){ clearInterval(timer); timer=null; } }
   return {unlock, mute, beep, startMusic, stopMusic};
 })();
 
 // ===== External Music via YouTube (with fallback) =====
 const Music = (()=>{
   const YT_ID = "mdViuOHgiaQ"; // requested video ID
-  const START_SEC = 15;          // start at 15 seconds
+  const START_SEC = 16;          // start at 15 seconds
   let usingYT = false, ytReady = false, player = null, muted = false;
 
   function setup(){
